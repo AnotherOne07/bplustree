@@ -1,11 +1,8 @@
-/*
-  Funções e algoritmos baseados na implementação disponível em: http://www.amittai.com/prose/bplustree.html
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
-// A ordem D padrão da árvore B+ é 4
+// A ordem D padrão da árvore B+ é 5
 #define DEFAULT_ORDER 5
 
 
@@ -109,4 +106,4 @@ node * redistribute_nodes(node * root, node * n, node * neighbor, int neighbor_i
 
 node * delete_entry(node * root, node * n, int key, void * pointer);
 
-node * delete_action(node * root, int key);
+node * delete(node * root, int key);
