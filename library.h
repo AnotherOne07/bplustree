@@ -476,14 +476,14 @@ node * insert(node * root, int key, int value){
 
 /* Funções de exclusão */
 
-// Retorna o índice do irmão mais próximo de um nó a esquerda, se existir
+// Retorna o índice do irmão mais próximo de um nó à esquerda, se existir
 // se o ponteiro for o fiho mais à esquerda de um nó, retorna -1
-int get_neighbor_index(node * neighbor){
+int get_neighbor_index( node * n ) {
   int i;
   // Para cada ponteiro, verifica se ele aponta para o nó (neighbor)
   // se encontrar, retorna o índice do ponteiro - 1
-  for (i = 0; i <= neighbor->parent->num_keys; i++)
-    if (neighbor->parent->pointers[i] == neighbor)
+  for (i = 0; i <= n->parent->num_keys; i++)
+    if (n->parent->pointers[i] == n)
       return i - 1;
 }
 
@@ -513,17 +513,28 @@ node * adjust_root(node * root){
 
 // Remove um índice e ajusta os índices remanescentes
 node * remove_entry_from_node(node * n, int key, node * pointer){
+  
   int i, num_pointers;
 
   // Remove a chave a desloca as chaves restantes no nó para a esquerda
   i = 0;
-  while(n->keys[i] != key)
+  while (n->keys[i] != key)
     i++;
-  for(++i; i < n->num_keys; i++)
+  for (++i; i < n->num_keys; i++)
     n->keys[i - 1] = n->keys[i];
+
+  // Remove o ponteiro e desloca os ponteiros restantes no nó para a esquerda
+  num_pointers = n->is_leaf ? n->num_keys : n->num_keys + 1;
+  i = 0;
+  while (n->pointers[i] != pointer)
+    i++;
+  for (++i; i < num_pointers; i++)
+    n->pointers[i - 1] = n->pointers[i];
+
+  // Uma chave a menos na folha
   n->num_keys--;
 
-  // Remove o ponteiro da chave a ser removida e desloca os ponteiros restantes no nó para a esquerda
+  // Limpeza dos ponteiros restantes, uma vez que o conteúdo foi copiado para uma unidade à esquerda
   if(n->is_leaf){  
     for(i = n->num_keys; i < order - 1; i++)
       n->pointers[i] = NULL;
@@ -536,12 +547,13 @@ node * remove_entry_from_node(node * n, int key, node * pointer){
 
 // Concatena um nó que fere a regra de chaves mínimas por nó de uma árvore b+, com um nó vizinho 
 node * concatenate_nodes(node * root, node * n, node * neighbor, int neighbor_index, int k_prime){
+  
   int i, j, neighbor_insertion_index, n_end;
   node * tmp;
 
   // Verifica se o nó vizinho está à direita do nó (neighbor_index = -1), se estiver, os nós são trocados
   // pois o nó fornecido está à esquerda e o vizinho está à direita.
-  if(neighbor_index == -1){
+  if (neighbor_index == -1) {
     tmp = n;
     n = neighbor;
     neighbor = tmp;
@@ -550,7 +562,7 @@ node * concatenate_nodes(node * root, node * n, node * neighbor, int neighbor_in
   neighbor_insertion_index = neighbor->num_keys;
 
   // Caso 1: O nó é um nó interno
-  if(!n->is_leaf){
+  if (!n->is_leaf){
     
     // Copia a chave k_prime e o ponteiro (fiel escudeiro) ao final do vizinho (neighbor)
     neighbor->keys[neighbor_insertion_index] = k_prime;
@@ -632,14 +644,14 @@ node * redistribute_nodes(node * root, node * n, node * neighbor, int neighbor_i
         n->parent->keys[k_prime_index] = neighbor->keys[1];
       }
     // Caso 2.2: O nó vizinho é um nó interno
-    else {
-      // Move a chave que subiu para o pai (k_prime) para o final do nó (n)
-      n->keys[n->num_keys] = k_prime;
-      n->pointers[n->num_keys + 1] = neighbor->pointers[0];
-      tmp = (node *)n->pointers[n->num_keys + 1];
-      tmp->parent = n;
-      n->parent->keys[k_prime_index] = neighbor->keys[0];
-    }
+      else {
+        // Move a chave que subiu para o pai (k_prime) para o final do nó (n)
+        n->keys[n->num_keys] = k_prime;
+        n->pointers[n->num_keys + 1] = neighbor->pointers[0];
+        tmp = (node *)n->pointers[n->num_keys + 1];
+        tmp->parent = n;
+        n->parent->keys[k_prime_index] = neighbor->keys[0];
+      }
     // Desloca cada chave restante no vizinho uma casa para esquerda
     for (i = 0; i < neighbor->num_keys - 1; i++) {
       neighbor->keys[i] = neighbor->keys[i + 1];
@@ -656,13 +668,13 @@ node * redistribute_nodes(node * root, node * n, node * neighbor, int neighbor_i
 }
 
 // Remove uma entrada da árvore B+
-node * delete_entry(node * root, node * n, int key, void * pointer){
+node * delete_entry( node * root, node * n, int key, void * pointer ){
+  
   int min_keys;
   node * neighbor;
   int neighbor_index;
   int k_prime_index, k_prime;
   int capacity;
-  int concat_num;
 
   // Remove par chave:ponteiro da árvore
   n = remove_entry_from_node(n, key, pointer);
@@ -679,22 +691,24 @@ node * delete_entry(node * root, node * n, int key, void * pointer){
     return root;
 
   // Caso 2: Quantidade de chaves está abaixo da quantidade permitida na árvore
-  neighbor_index = get_neighbor_index(n);
+  neighbor_index = get_neighbor_index( n );
   k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
   k_prime = n->parent->keys[k_prime_index];
-  neighbor = neighbor_index == -1 ? n->parent->pointers[1] : n->parent->pointers[neighbor_index];
+  // O vizinho será o nó à direita, caso a folha seja a mais à esquerda
+  // senão, o vizinho será o nó à esquerda
+  neighbor = neighbor_index == -1 ? n->parent->pointers[1] : 
+    n->parent->pointers[neighbor_index];
   capacity = n->is_leaf ? order : order - 1;
 
   // Para decidir qual algoritmo de combinação de nós utilizar, a função verifica se a concatenação dos nós
   // (n) e seu vizinho (n) resultará em um número de chaves ABAIXO da quantidade mínima na árvore
-  concat_num = neighbor->num_keys + n->num_keys;
-  if ( concat_num < capacity)
+  if (neighbor->num_keys + n->num_keys < capacity) // Algoritmo de Concatenação
     return concatenate_nodes(root, n, neighbor, neighbor_index, k_prime);
-  else
+  else // Algoritmo de Redistribuição
     return redistribute_nodes(root, n, neighbor, neighbor_index, k_prime_index, k_prime);
 }
 
-node * delete_action(node * root, int key){
+node * delete(node * root, int key){
   node * key_leaf;
   record * key_record;
 
